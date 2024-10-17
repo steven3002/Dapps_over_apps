@@ -2,13 +2,15 @@
 extern crate alloc;
 
 use alloy_primitives::{ Address, U8, U32 };
-use stylus_sdk::{ prelude::*, block, msg };
+use alloy_sol_types::sol;
+use stylus_sdk::{ prelude::*, block, msg, evm };
 
 sol_storage! {
     #[entrypoint]
     pub struct ClassState {
         mapping(address => bool) admin;
         mapping( uint8 => Classes) class_x;
+        mapping(address => bool ) members;
         uint8 old_index;
     }
 
@@ -24,6 +26,10 @@ sol_storage! {
         string meta_data;
     }
 
+}
+
+sol! {
+    event Member(address indexed user);
 }
 
 #[public]
@@ -45,13 +51,32 @@ impl ClassState {
         self.old_index.set(new_index);
     }
 
-    pub fn get_class(&self, index: u8) -> String {
+    pub fn register_user(&mut self) {
+        if self.is_member() {
+            return;
+        }
+        let user = msg::sender();
+        let mut state = self.members.setter(user);
+        state.set(true);
+        evm::log(Member { user });
+    }
+
+    pub fn is_member(&self) -> bool {
+        self.members.get(msg::sender())
+    }
+
+    pub fn get_class(&self, index: u8) -> Result<String, Vec<u8>> {
+        if !self.is_member() {
+            return Err(vec![0]);
+        }
         let classes = self.class_x.get(U8::from(index));
-        return format!(
-            r#"{{"name":"{}","meta_data":"{}","created_at":{}}}"#,
-            classes.name.get_string(),
-            classes.meta_data.get_string(),
-            classes.created_at.get()
+        return Ok(
+            format!(
+                r#"{{"name":"{}","meta_data":"{}","created_at":{}}}"#,
+                classes.name.get_string(),
+                classes.meta_data.get_string(),
+                classes.created_at.get()
+            )
         );
     }
 
@@ -81,23 +106,36 @@ impl ClassState {
         material.meta_data.set_str(meta_data);
     }
 
-    pub fn get_material_by_index(&self, classes_index: u8, material_index: u8) -> String {
+    pub fn get_material_by_index(
+        &self,
+        classes_index: u8,
+        material_index: u8
+    ) -> Result<String, Vec<u8>> {
+        if !self.is_member() {
+            return Err(vec![0]);
+        }
         let classes = self.class_x.get(U8::from(classes_index));
         let material = classes.materials.get(U8::from(material_index));
-        material.meta_data.get_string()
+        Ok(material.meta_data.get_string())
     }
 
-    pub fn get_material_last_index(&self, index: u8) -> u8 {
+    pub fn get_material_last_index(&self, index: u8) -> Result<u8, Vec<u8>> {
+        if !self.is_member() {
+            return Err(vec![0]);
+        }
         let classes = self.class_x.get(U8::from(index));
         let current_index = classes.materials_index.get();
         let result: u8 = current_index.to::<u8>();
-        result
+        Ok(result)
     }
 
-    pub fn get_last_index(&self) -> u8 {
+    pub fn get_last_index(&self) -> Result<u8, Vec<u8>> {
+        if !self.is_member() {
+            return Err(vec![0]);
+        }
         let index = self.old_index.get();
         let result: u8 = index.to::<u8>();
-        result
+        Ok(result)
     }
 
     pub fn set_admin(&mut self, address: Address) {

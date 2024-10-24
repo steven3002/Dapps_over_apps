@@ -45,8 +45,8 @@ Each material contains:
 - **`register_user():`** Registers the calling user as a member and triggers the `Member` event.
 - **`get_class(index: u8):`** Returns the class details (name, metadata, creation time) for the specified class index.
 - **`get_material_by_index(classes_index: u8, material_index: u8):`** Returns the material metadata for the given class and material index.
-- **`get_material_last_index(index: u8):`** Returns the last material index for a given class.
-- **`get_last_index():`** Returns the last used class index.
+- **`get_material_last_index(index: u8):`** Returns the last unused material index for a given class.
+- **`get_last_index():`** Returns the last unused class index.
 
 ### Utility Functions
 - **`is_member():`** Checks if the calling user is a registered member.
